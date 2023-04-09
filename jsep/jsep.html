@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="Ivy Camera">
+    <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1, maximum-scale=1">
+    <meta itemprop="description" content="Ivy Camera">
+    <meta itemprop="name" content="Ivy Camera">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta id="theme-color" name="theme-color" content="#ffffff">
+    <title>Ivy Camera</title>
+    <style>
+        body{
+          font-family: Arial !important;
+        }
+        input[type=range] {
+          -webkit-appearance: none;
+          height: 16px;
+          background: #fff;
+          outline: none;
+        }
+        input[type=range]::-moz-range-track {
+           height: 5px;
+           background: #aaa;
+           border: none;
+           border-radius: 3px;
+        }
+        input[type=range]::-moz-range-thumb {
+           border: none;
+           height: 16px;
+           width: 16px;
+           border-radius: 50%;
+           background: #aaa;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+           height: 5px;
+           background: #aaa;
+           border: none;
+           border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+           -webkit-appearance: none;
+           border: none;
+           height: 16px;
+           width: 16px;
+           border-radius: 50%;
+           background: #aaa;
+           margin-top: -4px;
+        }
+    </style>
+</head>
+<body>
+<div style="margin-left:24px;width:640px">
+    <h1 style="border-bottom:1px solid #ccc">WebRTC Camera View</h1>
+    <audio id="audioPlayer" autoplay></audio>
+    <video style="background:#666;width:640px;height:360px" id="cameraView" playsinline autoplay></video>
+    <div style="float:right"><a id="speaker">&#128266;</a>
+      <input type="range" min="0" max="10" id="audioVolume" disabled autocolpete="off"
+          oninput="volumeChanged(this.value);" style="width:45px;vertical-align:bottom">
+    </div>
+    <p>
+      <input type="button" id="callButton" value="Connect">
+      <input type="button" id="hangupButton" value="Hang Up" style="margin-left:20px">
+    <p>
+</div>
+</body>
+<script src="jsep.js" async></script>
+</html>
