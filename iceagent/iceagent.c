@@ -452,7 +452,7 @@ extern void  dtls_cleanup_ctx(void *sess);
 //
 // this is called from ice_thread() and ice_rtp_quit() from rtp thread
 //
-static void ice_halt_session(icep_t *sess)
+void ice_halt_session(icep_t *sess)
 {
     //pthread_mutex_lock(sess->lock);
     if( sess->quit != 0 ) //or __atomic_test_and_set(&sess->quit, __ATOMIC_SEQ_CST)
@@ -664,7 +664,7 @@ static void ice_setup_randk(void)
     {
         LOGV("reading %s - be patient..", pool);
         int j;
-        for(j=0; j < 8; j++) read(f, seed+j, 1);
+        for(j=0; j < 8; j++) if( read(f, seed+j, 1) ) {}
         LOGV(".done!\n");
     }
     else

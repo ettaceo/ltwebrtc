@@ -35,8 +35,8 @@ typedef unsigned int u32_t;
 
 //#define LOGI(...)
 #define LOGI printf
-//#define LOGV(...)
-#define LOGV printf
+#define LOGV(...)
+//#define LOGV printf
 
 #define MAX_PATH_LEN 256
 #define TMP_FILE_LEN 8
@@ -199,11 +199,10 @@ static char* qtos(char *t, int q)
 __attribute__((unused))
 static int  is_video_codec(int code)
 {
-    char t[5]={0};
     if( code == 'mp4v' ) return 1;
     if( code == 'jpeg' ) return 1;
     if( code == 'avc1' ) return 1;
-    printf("[%s] [%s] not a video\n", __FUNCTION__, qtos(t, HTON32(code)));
+    LOGV("[%s] [%s] not a video\n", __FUNCTION__, qtos(0, HTON32(code)));
     return 0;
 }
 
@@ -320,27 +319,29 @@ static int  proc_ftyp(mp4x_t *mp4x, int size)
 {
     int  brand='    ';
     int  version=0;
-    char t[5]={0};
 
     size -= sizeof(atom_t);
 
-    fread(&brand, 1, 4, mp4x->file);
-    size -= 4;
+    int n = fread(&brand, 1, 4, mp4x->file);
+    if( n != 4 ) return ERR_POINT;
+    size -= n;
 
-    fread(&version, 1, 4, mp4x->file);
-    size -= 4;
+    n = fread(&version, 1, 4, mp4x->file);
+    if( n != 4 ) return ERR_POINT;
+    size -= n;
 
     g_is_quick_time = (brand == HTON32('qt  '));
-    LOGV(" FTYP: %s.%x\n", qtos(t, brand), version);
+    LOGV(" FTYP: %s.%x\n", qtos(0, brand), version);
 
     int matched = 0;
     int k;
 
     while( size >= 4 )
     {
-        fread(&brand, 1, 4, mp4x->file);
-        size -= 4;
-        //printf("FTYP:  compatibe %s\n", qtos(t, brand));
+        n = fread(&brand, 1, 4, mp4x->file);
+        if( n != 4 ) return ERR_POINT;
+        size -= n;
+        LOGV("FTYP:  compatibe %s\n", qtos(0, brand));
         for( k=0; k < mp4x->nfcc; k++ )
         {
             if( brand == mp4x->fccs[k] ) matched += 1;
@@ -350,26 +351,17 @@ static int  proc_ftyp(mp4x_t *mp4x, int size)
     return (matched == mp4x->nfcc) ? 0 : ERR_POINT;
 }
 
-__attribute__((unused))
-static void proc_tkhd(mp4x_t *mp4x, int size)
-{
-    int  quad[21]={0};
-
-    size -= sizeof(atom_t);
-
-    fread(quad, 1, 84, mp4x->file);
-    size -= 84;
-
-    // quad[8] lo 16-bit: alternative group   
-    //mp4x->is_video_track = (NTOH32(quad[8])&0xffff) == 0 ? 1 : 0;
-}
-
-static void proc_hdlr(mp4x_t *mp4x, int size)
+static int proc_hdlr(mp4x_t *mp4x, int size)
 {
     int   quad[3];
 
-    fread(quad, 1, sizeof(quad), mp4x->file);
-    size -= size;
+    size -= sizeof(atom_t);
+
+    if( sizeof(quad) != fread(quad, 1, sizeof(quad), mp4x->file) )
+    {
+        return ERR_POINT;
+    }
+    size -= sizeof(quad);
 
     mp4x->media_type = 0;
 
@@ -379,46 +371,51 @@ static void proc_hdlr(mp4x_t *mp4x, int size)
     }
     if( mp4x->media_type == 'vide' )
     {
-        LOGV("[%s:%u HDLR subtype=%s \n", __func__, __LINE__, qtos(0, quad[2]));
+        LOGV("[%s:%u] HDLR subtype=%s \n", __func__, __LINE__, qtos(0, quad[2]));
     }
+
+    return 0;
 }
 
-static void proc_mdhd(mp4x_t *mp4x, int size)
+static int proc_mdhd(mp4x_t *mp4x, int size)
 {
     int  quad[8]={0};
 
     size -= sizeof(atom_t);
 
-    fread(quad, 1, 24, mp4x->file);
+    if( 24 != fread(quad, 1, 24, mp4x->file) ) return ERR_POINT;
     size -= 24;
     mp4x->global_timescale = NTOH32(quad[3]);
 
-    LOGV("[%s:%u MDHD: timescale=%d duration=%x\n", __func__, __LINE__,
+    LOGV("[%s:%u] MDHD: timescale=%d duration=%x\n", __func__, __LINE__,
         mp4x->global_timescale, NTOH32(quad[4]));
+
+    return 0;
 }
 
-static void proc_mvhd(mp4x_t *mp4x, int size)
+static int proc_mvhd(mp4x_t *mp4x, int size)
 {
     int  quad[25]={0};
-    time_t utc=0;
 
     size -= sizeof(atom_t);
 
-    fread(quad, 1, 100, mp4x->file);
+    if( 100 != fread(quad, 1, 100, mp4x->file) ) return ERR_POINT;
     size -= 100;
-
+/*
+    time_t utc=0;
     utc = NTOH32(quad[1]) - UTC1904TO70;
-    printf(" MVHD: create time=%s", ctime(&utc));
+    LOGV(" MVHD: create time=%s", ctime(&utc));
     utc = NTOH32(quad[2]) - UTC1904TO70;
-    printf(" MVHD: modify time=%s", ctime(&utc));
-    printf(" MVHD: timescale=%d\n", NTOH32(quad[3]));
-    printf(" MVHD: duration=%d=%dms\n",
+    LOGV(" MVHD: modify time=%s", ctime(&utc));
+    LOGV(" MVHD: timescale=%d\n", NTOH32(quad[3]));
+    LOGV(" MVHD: duration=%d=%dms\n",
         NTOH32(quad[4]), NTOH32(quad[4])/NTOH32(quad[3])*1000);
     mp4x->global_timescale = NTOH32(quad[3]);
-    printf(" MVHD: matrix=%x %x %x %x %x %x %x %x %x\n",
+    LOGV(" MVHD: matrix=%x %x %x %x %x %x %x %x %x\n",
         quad[9], quad[10], quad[11], quad[12], quad[13], quad[14],
         quad[15], quad[16], quad[17]);
-
+*/
+    return 0;
 }
 
 static int proc_avcc(mp4x_t *mp4x, uint8_t *avcC, int len)
@@ -443,7 +440,7 @@ static int proc_avcc(mp4x_t *mp4x, uint8_t *avcC, int len)
     
     if( 2 + sps_len + 3 + pps_len > len )
     {
-        LOGV("[%s:%u]  2 + %d + 3 + %d > %d\n", __func__, __LINE__,
+        LOGI("[%s:%u]  2 + %d + 3 + %d > %d\n", __func__, __LINE__,
             sps_len, pps_len, len);
          return ERR_POINT;
     }
@@ -459,7 +456,7 @@ static int proc_avcc(mp4x_t *mp4x, uint8_t *avcC, int len)
     memcpy(avc->sps_pps_text+4+sps_len+4, avcC+2+sps_len+3, pps_len);
 
     avc->sps_pps_size = 4 + sps_len + 4 + pps_len;
-    
+
     return 0;
 }
 
@@ -468,15 +465,15 @@ static int proc_vmsd(mp4x_t *mp4x, int size)
     atom_t  atom;
     vmsd_t  vmsd;
     int     vmsz;
-//    char t[5]={0};
-
+    int     n;
     // get size of video media specif part
     vmsz = sizeof(vmsd_t) - offsetof(vmsd_t, version);
 
     while( size >= 8 )
     {
         // read video media specific part
-        fread(&vmsd.version, 1, vmsz, mp4x->file);
+        n = fread(&vmsd.version, 1, vmsz, mp4x->file);
+        if( n != vmsz ) return ERR_POINT;
         size -= vmsz;
 /*
         printf("  VMSD: version(%d) rev(%d)\n",
@@ -484,7 +481,7 @@ static int proc_vmsd(mp4x_t *mp4x, int size)
         printf("  VMSD: temporal_qulity(%d) spatial_quality(%d)\n",
             NTOH32(vmsd.temporal_qulity), NTOH32(vmsd.spatial_quality));
 
-        printf("  VMSD: vendor(%s)\n", qtos(t, vmsd.vendor));
+        printf("  VMSD: vendor(%s)\n", qtos(0, vmsd.vendor));
         printf("  VMSD: width(%d) height(%d) depth(%d)\n",
             NTOH16(vmsd.width), NTOH16(vmsd.height), NTOH16(vmsd.depth));
         printf("  VMSD: hres(%d) vres(%d)\n",
@@ -496,7 +493,8 @@ static int proc_vmsd(mp4x_t *mp4x, int size)
         // read extendions
         while( size >= sizeof(atom_t) )
         {
-            fread(&atom, 1, sizeof(atom_t), mp4x->file);
+            n = fread(&atom, 1, sizeof(atom_t), mp4x->file);
+            if( n != sizeof(atom_t) ) return ERR_POINT;
 /*
             printf("  VMSD: extension(%s) size=%d out of %d\n", 
                 qtos(t, atom.type), NTOH32(atom.size), size);
@@ -506,7 +504,8 @@ static int proc_vmsd(mp4x_t *mp4x, int size)
                 (len = (NTOH32(atom.size)) - sizeof(atom_t)) > 0 )
             {
                 unsigned char *avcc = __builtin_alloca(len);
-                fread(avcc, 1, len, mp4x->file);
+                n = fread(avcc, 1, len, mp4x->file);
+                if( n != len ) return ERR_POINT;
                 int e = proc_avcc(mp4x, avcc, len);
                 //dump_hex(avcc, len);
                 if( e != 0 ) return e;
@@ -515,6 +514,7 @@ static int proc_vmsd(mp4x_t *mp4x, int size)
             break;
         }
     }
+
     return 0;
 }
 
@@ -527,11 +527,12 @@ static int proc_stsd(mp4x_t *mp4x, int size)
         return 0;
     }
 
-    int e = 0;
-    int  quad[4]={0};
+    int n = 0;
+    int quad[4]={0};
     size -= sizeof(atom_t);
-    fread(quad, 1, 8, mp4x->file);
-    size -= 8;
+    n = fread(quad, 1, 8, mp4x->file);
+    if( n != 8 ) return ERR_POINT;
+    size -= n;
 
     LOGV("[%s:%u] STSD %d entries\n", __func__, __LINE__, NTOH32(quad[1]));
 
@@ -539,20 +540,22 @@ static int proc_stsd(mp4x_t *mp4x, int size)
 
     if( size >= 16 )
     {
-        fread(quad, 1, 16, mp4x->file);
-
+        n = fread(quad, 1, 16, mp4x->file);
+        if( n != 16 ) return ERR_POINT;
         mp4x->stsd_data_format = NTOH32(quad[1]);
 
         LOGV("[%s:%u] Data Format %s\n", __func__, __LINE__, qtos(0, quad[1]));
 
         if( is_video_codec(NTOH32(quad[1])) ) 
         {
-            e = proc_vmsd(mp4x, size - 16);
+            int e = proc_vmsd(mp4x, size - 16);
+            if( e != 0 ) return e;  // error point
         }
 
-        size -= NTOH32(quad[0]);
+        size -= NTOH32(quad[0]);  // NTOH32(quad[0]) >= 16
     }
-    return e;
+
+    return 0;
 }
 
 static int proc_stss(mp4x_t *mp4x, int size)
@@ -564,13 +567,16 @@ static int proc_stss(mp4x_t *mp4x, int size)
 
     int  quad[4]={0};
     size -= sizeof(atom_t);
-    fread(quad, 1, 8, mp4x->file);
-    size -= 8;
+    int n = fread(quad, 1, 8, mp4x->file);
+    if( n != 8 ) return ERR_POINT;
+    size -= n;
     uint32_t entries = NTOH32(quad[1]);
 
     if( entries > 0 )
     {
-        fread(quad, 1, 4, mp4x->file);
+        n = fread(quad, 1, 4, mp4x->file);
+        if( n != 4 ) return ERR_POINT;
+        size -= n;
         mp4x->avc1->sync0_index = NTOH32(quad[0]);
     }
     if(  mp4x->avc1->sync0_index > 0 )
@@ -578,10 +584,12 @@ static int proc_stss(mp4x_t *mp4x, int size)
         // from sample number to sample index
         mp4x->avc1->sync0_index -= 1;
     }
-LOGV("[%s:%u] STSS entries=%d sync0_index=%d\n",
-    __func__, __LINE__, entries, mp4x->avc1->sync0_index);
+
+    LOGV("[%s:%u] STSS entries=%d sync0_index=%d\n",
+        __func__, __LINE__, entries, mp4x->avc1->sync0_index);
 
     mp4x->avc1->sync0_index = 0; // !
+
     return 0;
 }
 
@@ -594,16 +602,10 @@ static int proc_stts(mp4x_t *mp4x, int size)
 
     int  quad[4]={0};
     size -= sizeof(atom_t);
-    fread(quad, 1, 8, mp4x->file);
-    size -= 8;
-/*
-    if( NTOH32(quad[1]) != 1 || size < 8 )
-    {
-        LOGV("[%s:%u] STTS: not support more than 1 entries(%d)\n",
-            __func__, __LINE__, NTOH32(quad[1]));
-        return ERR_POINT;
-    }
-*/
+    int n = fread(quad, 1, 8, mp4x->file);
+    if( n != 8 ) return ERR_POINT;
+    size -= n;
+
     avc1_t *avc = mp4x->avc1;
 
     avc->stts_entries = NTOH32(quad[1]);
@@ -612,12 +614,11 @@ static int proc_stts(mp4x_t *mp4x, int size)
 
     uint32_t sample_count = 0;
     int i=0;
-
-    //while( size >= 8 )
     for( i = 0; i < avc->stts_entries; i+=1 )
     {
-        fread(quad, 1, 8, mp4x->file);
-        size -= 8;
+        n = fread(quad, 1, 8, mp4x->file);
+        if( n != 8 ) return ERR_POINT;
+        size -= n;
 
         avc->time_to_sample[i].count = NTOH32(quad[0]);
 
@@ -647,20 +648,22 @@ static int proc_stsc(mp4x_t *mp4x, int size)
 
     int  quad[4]={0};
     size -= sizeof(atom_t);
-    fread(quad, 1, 8, mp4x->file);
-    size -= 8;
+    int n = fread(quad, 1, 8, mp4x->file);
+    if( n != 8 ) return ERR_POINT;
+    size -= n;
 
     if( NTOH32(quad[1]) != 1 || size < 12 )
     {
-        LOGV("[%s:%u] STSC: not support more than 1 entries(%d)\n",
+        LOGI("[%s:%u] STSC: not support more than 1 entries(%d)\n",
             __func__, __LINE__, NTOH32(quad[1]));
         return ERR_POINT;
     }
 
     while( size > 0 )
     {
-        fread(quad, 1, 12, mp4x->file);
-        size -= 12;
+        n = fread(quad, 1, 12, mp4x->file);
+        if( n != 12 ) return ERR_POINT;
+        size -= n;
 
         LOGV(" Start Chunk(%d) Samples(%d) ID(%d)\n", 
             NTOH32(quad[0]), NTOH32(quad[1]), NTOH32(quad[2]));
@@ -673,14 +676,14 @@ static int proc_stsc(mp4x_t *mp4x, int size)
     {
         avc->sample_count = NTOH32(quad[1]);
     }
- 
+
     if( NTOH32(quad[1]) != avc->sample_count )
     {
-        LOGV("[%s:%u] STSC: sample count mistmatch(%d %d)\n",
+        LOGI("[%s:%u] STSC: sample count mistmatch(%d %d)\n",
             __func__, __LINE__, NTOH32(quad[1]), avc->sample_count);
         return ERR_POINT;
     }
-    
+
     avc->chunk_number = NTOH32(quad[0]);
 
     return 0;
@@ -695,27 +698,30 @@ static int proc_stco(mp4x_t *mp4x, int size)
 
     int  quad[4]={0};
     size -= sizeof(atom_t);
-    fread(quad, 1, 8, mp4x->file);
-    size -= 8;
+    int n = fread(quad, 1, 8, mp4x->file);
+    if( n != 8 ) return ERR_POINT;
+    size -= n;
 
     uint32_t entries = NTOH32(quad[1]);
     if( entries != 1 )
     {
-        LOGV("[%s:%u] STCO: not support more than 1 entries(%d)\n",
+        LOGI("[%s:%u] STCO: not support more than 1 entries(%d)\n",
             __func__, __LINE__, entries);
         return ERR_POINT;
     }
     if( size / 4 != entries )
     {
-        LOGV("[%s:%u] STCO: not support 64-bit offset yet (%u %u)\n",
+        LOGI("[%s:%u] STCO: not support 64-bit offset yet (%u %u)\n",
             __func__, __LINE__, size/4, entries);
         return ERR_POINT;
     }
 
     avc1_t *avc = mp4x->avc1;
 
-    fread(quad, 1, 4, mp4x->file);
-    
+    n = fread(quad, 1, 4, mp4x->file);
+    if( n != 4 ) return ERR_POINT;
+    size -= n;
+
     avc->chunk_offset = NTOH32(quad[0]);
 
     LOGV("[%s:%u] STCO: chunk-offset=%u\n",
@@ -735,8 +741,9 @@ static int proc_stsz(mp4x_t *mp4x, int size)
     int  entries;
     size -= sizeof(atom_t);
     // flags and entries
-    fread(quad, 1, 12, mp4x->file);
-    size -= 12;
+    int n = fread(quad, 1, 12, mp4x->file);
+    if( n != 12 ) return ERR_POINT;
+    size -= n;
 
     int smplsiz = NTOH32(quad[1]);
     
@@ -761,7 +768,7 @@ static int proc_stsz(mp4x_t *mp4x, int size)
     }
     if( entries != avc->sample_count )
     {
-        LOGV("[%s:%u] STSZ:sample count mismatch(%u %u)\n",
+        LOGI("[%s:%u] STSZ:sample count mismatch(%u %u)\n",
             __func__, __LINE__, avc->sample_count, entries);
         return ERR_POINT;
     }
@@ -771,14 +778,15 @@ static int proc_stsz(mp4x_t *mp4x, int size)
     int i = 0;
     while( size > 0 && i < avc->sample_count)
     {
-        fread(quad, 1, 4, mp4x->file);
-        size -= 4;
+        n = fread(quad, 1, 4, mp4x->file);
+        if( n != 4 ) return ERR_POINT;
+        size -= n;
         avc->sample_size[i] = NTOH32(quad[0]);
         i += 1;
     }
     if( i < avc->sample_count )
     {
-        LOGV("[%s:%u] STSZ:sample count mismatch(%u %u)\n",
+        LOGI("[%s:%u] STSZ:sample count mismatch(%u %u)\n",
             __func__, __LINE__, avc->sample_count, i);
 
         return ERR_POINT;
@@ -790,6 +798,7 @@ static int proc_stsz(mp4x_t *mp4x, int size)
             __func__, __LINE__, i, avc->sample_size[i]);
     }
 */
+
     return 0;
 }
 
@@ -805,7 +814,8 @@ static int qt_parser(mp4x_t *mp4x, unsigned int start, int depth)
 
     fseek(mp4x->file, start, SEEK_SET);
 
-    fread(&atom, 1, sizeof(atom_t), mp4x->file);
+    int n = fread(&atom, 1, sizeof(atom_t), mp4x->file);
+    if( n != sizeof(atom_t) ) return ERR_POINT;
 
     asize = NTOH32(atom.size);
 
@@ -817,10 +827,10 @@ static int qt_parser(mp4x_t *mp4x, unsigned int start, int depth)
         error = proc_ftyp(mp4x, asize);
         break;
     case NTOH32('mdhd'):
-        proc_mdhd(mp4x, asize);
+        error = proc_mdhd(mp4x, asize);
         break;
     case NTOH32('mvhd'):
-        proc_mvhd(mp4x, asize);
+        error = proc_mvhd(mp4x, asize);
         break;
     case NTOH32('stsd'):
         error = proc_stsd(mp4x, asize);
@@ -841,15 +851,14 @@ static int qt_parser(mp4x_t *mp4x, unsigned int start, int depth)
         error = proc_stsz(mp4x, asize);
         break;
     case NTOH32('hdlr'):
-        proc_hdlr(mp4x, asize);
+        error = proc_hdlr(mp4x, asize);
         break;
     default: break;
     }
 
     if( error )
     {
-        LOGV("[%s:%u] error=%d\n", __func__, __LINE__, error);
-
+        LOGI("[%s:%u] error=%d\n", __func__, __LINE__, error);
         return error;
     }
 
@@ -869,11 +878,10 @@ static int qt_parser(mp4x_t *mp4x, unsigned int start, int depth)
         bsize = asize;
         break;
     }
-    
+
     switch( atom.type )
     {
     case HTON32('mdia'):
-        LOGV("[%s:%u] enter mdia\n", __func__, __LINE__);
         mp4x->enter_mdia = 1;
         break;
     case HTON32('stbl'):
@@ -886,15 +894,14 @@ static int qt_parser(mp4x_t *mp4x, unsigned int start, int depth)
     while( bsize < asize )
     {
         // recursive
-        int e = qt_parser(mp4x, start+bsize, depth+1);
-        if( e <= 0 ) return e;
-        bsize += e;
+        n = qt_parser(mp4x, start+bsize, depth+1);
+        if( n <= 0 ) return n;
+        bsize += n;
     }
 
     switch( atom.type )
     {
     case HTON32('mdia'):
-        LOGV("[%s:%u] exit mdia\n", __func__, __LINE__);
         mp4x->enter_mdia = 0;
         break;
     case HTON32('stbl'):
@@ -955,7 +962,7 @@ static uint32_t sample_guration(avc1_t *avc, uint32_t index)
         }
         index -= avc->time_to_sample[i].count;
     }
-    
+
     return ~0; // error
 }
 
@@ -973,7 +980,6 @@ static int  get_next_sample(avc1_t *avc)
         
         avc->frame_index = avc->sync0_index;
     }
-//LOGV("[%s:%u] frame-count=%d frame_index=%u\n", __func__, __LINE__, avc->frame_count, avc->frame_index);
 
     int len, size = avc->sample_size[avc->frame_index];
 
@@ -989,19 +995,15 @@ static int  get_next_sample(avc1_t *avc)
     int lead = NTOH32(((uint32_t*)avc->sbuf->data)[0]);
     if( lead + 4 < len )
     {
-        len -= lead + 4;
+        len -= (lead + 4); // <4-byte-size><SEI>
         memmove(avc->sbuf->data, avc->sbuf->data + lead+4, len);
     }
-
-if( (avc->sbuf->data[4]&0x1f)!= 1 )
-{
-//dump_hex(avc->sbuf->data, 30);
-}
 
     memcpy(avc->sbuf->data, "\x00\x00\x00\x01", 4);
 
     if( (avc->sbuf->data[4] & 0x1f) == 0x05 )
     {
+        // prefix <sps><pps>
         memmove(avc->sbuf->data + avc->sps_pps_size, avc->sbuf->data, len);
         memcpy(avc->sbuf->data, avc->sps_pps_text, avc->sps_pps_size);
         len += avc->sps_pps_size;
@@ -1046,7 +1048,6 @@ static void * qt_player(void *avc)
         // block until due time
         int e = sys_wait_until(ctx, ctx->frame_time);
         (void)e;
-//if( ctx->frame_count > 5) break;
     }
 
     close(ctx->timerfd);
@@ -1092,9 +1093,7 @@ void * start_qt_client(void *cookie, char *path,
     for( offset = 0; offset < fsize; )
     {
         e = qt_parser(ctx, offset, 0);
-
         if( e <= 0) break;
-
         offset += e;
     }
 
@@ -1130,14 +1129,8 @@ void   close_qt_client(void *mp4x)
     if( ctx->quit <= 0 )
     {
         if (ctx->quit == 0) ctx->quit = 1;
-
         pthread_kill(ctx->thread, SIGUSR1);
-
-        LOGV("[%s:%u] close_qt_client join thread\n", __func__, __LINE__);
-
         pthread_join(ctx->thread, 0);
-
-        LOGV("[%s:%u] close_qt_client join done\n", __func__, __LINE__);
     }
 
     fclose(ctx->file);
@@ -1170,14 +1163,21 @@ int  is_mp4_container(char *name)
 
     if( f == 0 ) return 0;
 
+    fseek(f, 0, SEEK_END);
+    int fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
     atom_t       atom;
     int          size;
 
-    fread(&atom, 1, sizeof(atom_t), f);
+    int n = fread(&atom, 1, sizeof(atom_t), f);
+    if( n != sizeof(atom_t)) return ERR_POINT;
 
     if( atom.type != HTON32('ftyp') ) goto exit;
 
     size = NTOH32(atom.size);
+
+    if( size > fsize ) goto exit;
 
     int  brand='    ';
     int  version=0;
@@ -1186,16 +1186,19 @@ int  is_mp4_container(char *name)
 
     if( size < 8 ) goto exit;
 
-    fread(&brand, 1, 4, f);
-    size -= 4;
+    n = fread(&brand, 1, 4, f);
+    if( n != 4 ) goto exit;
+    size -= n;
 
-    fread(&version, 1, 4, f);
-    size -= 4;
+    n = fread(&version, 1, 4, f);
+    if( n != 4 ) goto exit;
+    size -= n;
 
     while( e == 0 && size >= 4 )
     {
-        fread(&brand, 1, 4, f);
-        size -= 4;
+        n = fread(&brand, 1, 4, f);
+        if( n != 4 ) goto exit;
+        size -= n;
         e = (brand == HTON32('avc1'));
     }
 
@@ -1259,9 +1262,9 @@ int main(int argc, char *argv[])
     avc1_t *avc = mp4x->avc1;
     avc->file = &mp4x->file;
     avc->quit = &g_quit;
-    
+
     e = pthread_create(&avc->thread, 0, qt_player, avc);
-    
+
     if( e == 0 )
     {
         pthread_join(avc->thread, 0);

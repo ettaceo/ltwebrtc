@@ -229,53 +229,7 @@ static void ssl_hmac_sha1_roc(u8_t * digest, u8_t * key, u32_t keylen,
     HMAC_CTX_free(ctx);
 #endif
 }
-/*
-static void ssl_hmac_sha1(u8_t * digest, u8_t * key, u32_t keylen, u8_t * text, u32_t textlen)
-{
-    u8_t        md[20];
-    u8_t        mdkey[20];
-    u8_t        k_ipad[64];
-    u8_t        k_opad[64];
-    int i;
 
-    if (keylen > 64)
-    {
-        SHA_CTX         ctx;
-
-        SHA1_Init(&ctx);
-        SHA1_Update(&ctx, key, keylen);
-        SHA1_Final(mdkey, &ctx);
-        keylen = 20;
-
-        key = mdkey;
-    }
-
-    memcpy(k_ipad, key, keylen);
-    memcpy(k_opad, key, keylen);
-    memset(k_ipad + keylen, 0, 64 - keylen);
-    memset(k_opad + keylen, 0, 64 - keylen);
-
-    for (i = 0; i < 64; i++)
-    {
-        k_ipad[i] ^= 0x36;
-        k_opad[i] ^= 0x5c;
-    }
-
-    SHA_CTX         ctx;
-
-    SHA1_Init(&ctx);
-    SHA1_Update(&ctx, k_ipad, 64);
-    SHA1_Update(&ctx, text, textlen);
-    SHA1_Final(md, &ctx);
-
-    SHA1_Init(&ctx);
-    SHA1_Update(&ctx, k_opad, 64);
-    SHA1_Update(&ctx, md, 20);
-    SHA1_Final(md, &ctx);
-
-    memcpy(digest, md, 20);
-}
-*/
 // @out must have a size of @length + 10 for auth tag calculation
 int  encrypt_rtp_128(void *crypx, u8_t *rtp, u32_t length, u8_t *out)
 {

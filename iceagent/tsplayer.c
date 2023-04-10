@@ -277,8 +277,7 @@ int    is_ts_media_file(char *name)
     if( f == 0 ) return 0;
 
     unsigned char sync = 0;
-    fread(&sync, 1, 1, f);
-    size_t size = 0;
+    size_t size = fread(&sync, 1, 1, f);
     fseek(f, 0, SEEK_END);
     size = ftell(f);
     fclose(f);

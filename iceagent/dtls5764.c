@@ -1328,6 +1328,8 @@ int dtls_send_alert(dtls_ctx_t *dtls_ctx, int description)
     return ice_send_pkt(dtls_ctx->ice_session, rec, k);
 }
 
+extern void ice_halt_session(void *sess);
+
 //
 // udp packet @data may contain multiple dtls records
 // each record may contain mulitple messages
@@ -1415,8 +1417,14 @@ message_entry:
         e = dtls_handshake(ctx, (void*)msg_ptr, msg_len);
         break;
     case e_application_data:
-        sctp_rx(ctx, msg_ptr, msg_len);
-        e = msg_len;
+        e = sctp_rx(ctx, msg_ptr, msg_len);
+        if( e >= 0 ) e = msg_len;
+        if( e == -1 )
+        {
+            // e_type_abort
+            ice_halt_session(sess);
+            e = 0;
+        }
         break;
     default:
         e = -e_unexpected_message;
