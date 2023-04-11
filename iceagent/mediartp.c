@@ -26,8 +26,8 @@
 #endif
 
 #define LOGI printf
-#define LOGV printf
-//#define LOGV(...)
+//#define LOGV printf
+#define LOGV(...)
 
 #define RTCP_BIT_SR      (1<<0)
 #define RTCP_BIT_RR      (1<<1)
@@ -1117,7 +1117,7 @@ static void  * rtp_joint_thread(void *cx)
     rtppx_t *ap = &(ax->rtppx);
     int     e=0;
     int     ss=0;
- LOGV("[%s:%u] enter\n", __func__, __LINE__);
+
     ap->sock = -1;
 
     if( ap->peer_addr.sin_port )
@@ -1157,7 +1157,7 @@ static void  * rtp_joint_thread(void *cx)
     if( vp->peer_addr.sin_port )
     {
         vp->sock = socket(AF_INET, SOCK_DGRAM, 0);
-//{int e=(1<<18);setsockopt(vp->sock, SOL_SOCKET, SO_SNDBUF, (char*)&e, 4);}
+
         e = bind(vp->sock, (struct sockaddr*)&vp->self_addr, sizeof(vp->self_addr));
         if( e ) {}
 
@@ -1202,8 +1202,6 @@ static void  * rtp_joint_thread(void *cx)
 
         // check rtcp activity - don't change (((rtpcx_t *)cx)->quit
         if( vp->sock != -1 && rtcp_checker(vp) ) break;
-        // [11/20/2018] audio channel may have no activity
-        //if( ap->sock != -1 && rtcp_checker(ap) ) break;
     }
 
     if( vp->sock != -1 ) close(vp->sock);
@@ -1312,7 +1310,8 @@ static void   rtp_joint_reset(void *cx)
 
     pthread_mutex_destroy(&rtpcx->mutex);
 
-LOGI("[%s:%u] free(rtpcx=%p) audio p_state=%u\n", __func__, __LINE__, rtpcx, rtpcx->audio.rtppx.p_stats);
+    LOGV("[%s:%u] free(rtpcx=%p) audio p_state=%u\n",
+        __func__, __LINE__, rtpcx, rtpcx->audio.rtppx.p_stats);
     free(rtpcx);
 }
 
@@ -1380,7 +1379,6 @@ void   rtp_media_reset(void *cx)
     rtpcx_t *rtpcx = cx;
 
 #ifdef VIDEO_VIA_FILE
-LOGI("[%s:%u] close file client..\n", __func__, __LINE__);
     char *filepath = get_media_path();
     if( is_mp4_container(filepath) )
     {

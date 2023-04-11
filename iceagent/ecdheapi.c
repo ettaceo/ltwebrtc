@@ -11,7 +11,8 @@
 #include "openssl/evp.h"
 #include "openssl/ec.h"
 
-#define LOGV printf
+#define LOGV(...)
+//#define LOGV printf
 
 typedef struct ec_ctx_t
 {

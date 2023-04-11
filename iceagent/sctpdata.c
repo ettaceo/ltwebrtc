@@ -10,8 +10,8 @@
 #include "sctp4960.h"
 #include "mediartp.h"
 
-//#define LOGV(...)
-#define LOGV printf
+#define LOGV(...)
+//#define LOGV printf
 #define LOGI printf
 
 // ppid

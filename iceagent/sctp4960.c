@@ -761,8 +761,10 @@ static int sctp_parse_init(sctp_tcb_t *tcb, sctp_chunk_t *chunk)
          k < len;
          k += SCTP_ELEM_SIZE(param), param = SCTP_ELEM_NEXT(param))
     {
-LOGI("[%s:%u] option type=%#.4X size=%d\n", __func__, __LINE__,
-    ntohs(param->type), ntohs(param->length));
+
+    LOGV("[%s:%u] option type=%#.4X size=%d\n", __func__, __LINE__,
+        ntohs(param->type), ntohs(param->length));
+
         // rfc4960 sec 3.3.2.
         // if we don't support the option, send abort?
         if( ! sctp_parse_param(ntohs(param->type)) ) break;

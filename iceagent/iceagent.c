@@ -31,8 +31,8 @@
 
 static char * ice_log_path = "/tmp/ice.log";
 
-//#define LOGV(...)
-#define LOGV printf
+#define LOGV(...)
+//#define LOGV printf
 //#define LOGI(...)
 #define LOGI printf
 
@@ -129,8 +129,8 @@ static int get_pkt_info(icep_t *sess, struct in_pktinfo *in)
             // unsigned int ipi_ifindex;  Interface index
             // struct in_addr ipi_spec_dst; Local address
             // struct in_addr ipi_addr;  Header Destination address
-//LOGV("[%s:%u] received ifindex %d dest %s\n", __func__, __LINE__,
-//    pi->ipi_ifindex, inet_ntoa(pi->ipi_spec_dst));
+            LOGV("[%s:%u] received ifindex %d dest %s\n", __func__, __LINE__,
+                pi->ipi_ifindex, inet_ntoa(pi->ipi_spec_dst));
             if( in ) memcpy(in, pi, sizeof(struct in_pktinfo));
             return pi->ipi_ifindex;
         }

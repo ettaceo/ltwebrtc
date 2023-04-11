@@ -588,7 +588,7 @@ static int proc_stss(mp4x_t *mp4x, int size)
     LOGV("[%s:%u] STSS entries=%d sync0_index=%d\n",
         __func__, __LINE__, entries, mp4x->avc1->sync0_index);
 
-    mp4x->avc1->sync0_index = 0; // !
+    mp4x->avc1->sync0_index = 0; // ignore it for now
 
     return 0;
 }
@@ -818,9 +818,9 @@ static int qt_parser(mp4x_t *mp4x, unsigned int start, int depth)
     if( n != sizeof(atom_t) ) return ERR_POINT;
 
     asize = NTOH32(atom.size);
-
+#if 0
     show_atom(start, &atom, depth);
-
+#endif
     switch( atom.type )
     {
     case NTOH32('ftyp'):

@@ -29,9 +29,9 @@
 #include "stun5389.h"
 #include "mediartp.h"
 
-//#define LOGV(...)
+#define LOGV(...)
 //#define LOGI(...)
-#define LOGV printf
+//#define LOGV printf
 #define LOGI printf
 
 enum e_wrdr {
@@ -1715,6 +1715,7 @@ static void show_ws_state(int state, const char *func, int line)
     }
 
     LOGV("[%s:%d] %s\n", func, line, str);
+    (void)str;
 }
 
 // socket error/timeout - release pair_t object pending stun response
