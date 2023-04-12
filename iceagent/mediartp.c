@@ -283,7 +283,7 @@ static int off_to_start(unsigned char *pkt, int len)
 }
 
 //
-// generate an rfc3986 formatted packet from naively formatted rtp packet
+// generate an rfc3984 formatted packet from naively formatted rtp packet
 //  with rfc 4571 header. results in mpexx->refit[]
 //
 int  h264_rfc3984(refit_t *refit, u8_t *trtp, int size)
@@ -703,12 +703,12 @@ static int rtp_pump(void *cx, void *pkt, int len)
                 vx->vsutc = ~0LL;
             }
         }
-//LOGV("[%s:%u] size=%u\n", __func__, __LINE__, len);
+
         int   m = rtph->m;
         // fragment jumbo rtp packet into packets of upto MAX_RTP_LENGTH
         for(size = len, pnt = sizeof(rtp_hdr_t); pnt < len;)
         {
-            if( pnt > 0 )
+            if( pnt > sizeof(rtp_hdr_t) /*0*/ )
             {
                 rtph = (void*)((char*)pkt + pnt - sizeof(rtp_hdr_t));
                 memmove(rtph, pkt, sizeof(rtp_hdr_t));
@@ -716,7 +716,8 @@ static int rtp_pump(void *cx, void *pkt, int len)
                 size = sizeof(rtp_hdr_t) + len - pnt;
             }
             if( size > MAX_RTP_LENGTH ) size = MAX_RTP_LENGTH;
-            rtph->m = (m & (len - pnt <= MAX_RTP_LENGTH));
+            rtph->m = ((m!=0) && (len - (pnt - sizeof(rtp_hdr_t)) <= MAX_RTP_LENGTH)) ? 1 : 0;
+
             // refit to rfc3984 -check max length!
             h264_rfc3984(&vx->refit, (void*)rtph, size);
             // move @pnt to next packet payload

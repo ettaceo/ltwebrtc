@@ -1953,7 +1953,7 @@ prune:
         free(sctx[j].buf);
     }
 
-    LOGI("[%s:%u] quit=%d\n", __func__, __LINE__, quit[0]);
+    LOGV("[%s:%u] quit=%d\n", __func__, __LINE__, quit[0]);
 
     return 0;
 }

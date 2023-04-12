@@ -592,8 +592,6 @@ void * ice_thread(void *ctx)
 
             if( !(fds[i].revents & POLLIN) ) continue;
 
-            pthread_mutex_lock(sess->lock);
-
             sess->mlen = 0; // clear message buffer
 #ifdef ICE_USE_CTLMSG
             sess->mh->msg_flags = 0;
@@ -611,8 +609,6 @@ void * ice_thread(void *ctx)
             }
 
             if( e > 0 && sess->call ) e = sess->call(sess);
-
-            pthread_mutex_unlock(sess->lock);
         }
 
         // connectivity check
@@ -1289,24 +1285,19 @@ int main(int argc, char *argv[])
         pthread_mutexattr_destroy(attr);
     }
 
-    char cert_path[]="etc/cert.pem";
-    // if there is no subdirectory etc, put it in working directory
+    char cert_path[]="/tmp/cert.pem";
     {
-        DIR *etc = opendir("etc");
+        DIR *etc = opendir("/tmp");
         if( etc ) closedir(etc); else strcpy(cert_path, "cert.pem");
 
         // check certificate expiration
         struct stat st;
         if( 0 == stat(cert_path, &st) )
         {
-            // x509cert.c created certificate with validity of 365 days
-            if( st.st_mtime > 365*24*3600 )
-            {
-                unlink(cert_path);
-                LOGI("{%s} certificate %s has expired. re-create\n", argv[0], cert_path);
-            }
+            unlink(cert_path);
         }
     }
+
     icex->x509 = init_x509_context(cert_path);
 
     if( 0 == icex->x509 )
@@ -1337,7 +1328,7 @@ int main(int argc, char *argv[])
     sctp_exit();
 
 exit:
-    LOGV("{%s} done.\n", argv[0]);
+    LOGI("{%s} done.\n", argv[0]);
 
     if( g_port_map ) __builtin_free(g_port_map);
 
@@ -1345,7 +1336,6 @@ exit:
     {
         if( g_stun_server[e] )
         {
-LOGV("[%s:%u] freeing %s\n", __func__, __LINE__, g_stun_server[e]);
             __builtin_free(g_stun_server[e]);
             g_stun_server[e] = 0;
         }
